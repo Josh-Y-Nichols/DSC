@@ -1,0 +1,58 @@
+SELECT * FROM tutorial.yammer_events 
+
+SELECT * FROM tutorial.yammer_emails 
+
+SELECT * FROM tutorial.yammer_users 
+
+/* Below query was used to compare % of activations/day across the provided date range. Did not appear to display
+significant results in activation differences, showing that the issue was not related to an error in the activation process */
+SELECT CAST(user_activations/total_users AS float) as AVG_activations
+  FROM (
+        SELECT DATE_TRUNC('day', created_at) as date_created,
+        CAST(COUNT(*) AS float) AS total_users,
+        CAST(COUNT(CASE WHEN activated_at IS NOT NULL then u.user_id ELSE NULL END) AS float) AS user_activations
+        FROM tutorial.yammer_users u
+        WHERE created_at >= '2014-05-01'
+        AND created_at <= '2014-08-25'
+        GROUP BY 1
+        ORDER BY 1
+      ) AS new_table
+      
+/* Used to determine the different types of devices that access the site */
+SELECT DISTINCT(device)
+
+FROM tutorial.yammer_events e
+JOIN tutorial.yammer_users u
+ON u.user_id = e.user_id
+
+/* Used to determine how many users were accessing per device type for a given date range. 
+Overall data states that of 13561 unique visitors, ~39% are phone users. Over the date range 07/01 - 08/25, this number seems consistent overall. However, there is a clear drop in phone usage
+between the weeks of 07/28 and 08/04, and the trend continues downward. ALL usage is trending down, however mobile has almost twice the usage drop as the other platforms. */
+
+SELECT
+    DATE_TRUNC('week', occurred_at) AS week,
+    COUNT(DISTINCT CASE WHEN e.device IN ('macbook pro', 'lenovo thinkpad', 'macbook air', 
+'dell insprion notebook', 'chromebook', 'dell inspiron desktop', 'acer aspire notebook',
+'hp pavilion desktop', 'acer aspire desktop', 'mac mini', 'windows surface') THEN e.user_id ELSE NULL END)
+as computer,
+    COUNT(DISTINCT CASE WHEN e.device IN ('iphone 5s', 'samsung galaxy note', 'nokia lumia 635',
+'amazon fire phone', 'nexus 5', 'iphone 4s', 'htc one', 'iphone 5', 'samsung galaxy s4') THEN
+e.user_id ELSE NULL END) as phone,
+    COUNT(DISTINCT CASE WHEN e.device IN ('kindle fire', 'ipad mini', 'nexus 7', 'nexus 10',
+'samsung galaxy tablet', 'ipad air') THEN e.user_id ELSE NULL END) as tablet
+FROM tutorial.yammer_events e
+WHERE occurred_at >= '2014-07-04'
+AND occurred_at <= '2014-08-25'
+GROUP BY 1
+ORDER BY 1
+
+/* Shows that clickthrough rates also begin to suffer around the same time that mobile/usage in general drops. There is likely an issue with email clickthroughs causing overall usage to drop, as well
+as an issue with the mobile app in particular. Potentially if there is an issue with the mobile app, the clickthrough rate could also suffer as users of the mobile app may be less likely to clickthrough an 
+email that they receive on their phone. */
+SELECT 
+    DATE_TRUNC('week', occurred_at) AS week,
+    COUNT(DISTINCT CASE WHEN em.action = 'email_clickthrough' THEN em.user_id ELSE NULL END) AS clickthrough
+FROM tutorial.yammer_emails em
+JOIN tutorial.yammer_users u
+ON u.user_id = em.user_id
+GROUP BY 1
